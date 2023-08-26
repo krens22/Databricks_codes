@@ -1,0 +1,74 @@
+dbutils.widgets.help()
+
+#Populates the data at runtime, with the value in the box above
+dbutils.widgets.text("p_data_source","")
+v_data_src = dbutils.widgets.get("p_data_source")
+
+
+#Populates the data at runtime, with the value in the box above
+  
+dbutils.widgets.text("p_file_date","2021-03-21")
+v_file_date = dbutils.widgets.get("p_file_date")
+
+
+v_file_date
+v_data_src
+
+%run "../includes/Configuration"
+%run "../includes/common_functions"
+
+%fs
+ls /mnt/form1ka22/raw
+
+display(dbutils.fs.mounts())
+
+from pyspark.sql.types import StructType, StructField, IntegerType, DoubleType, StringType
+from pyspark.sql.functions import lit
+
+
+#Assign datatypes
+ckts_schema = StructType(fields=[StructField("circuitId", IntegerType(), False),
+                                 StructField("circuitRef", StringType(), True),
+                                 StructField("name", StringType(), True),
+                                 StructField("location", StringType(), True),
+                                 StructField("country", StringType(), True),
+                                 StructField("lat", DoubleType(), True),
+                                 StructField("lng", DoubleType(), True),
+                                 StructField("alt", IntegerType(), True),
+                                 StructField("url", StringType(), True),
+                                 StructField("data_source", StringType(),False),
+                                 StructField("file_date", StringType(), False)])
+
+ckts_df = spark.read.\
+option("header", True).\
+schema(ckts_schema).\
+csv(f"{raw_folder_path}/incremental_load_data/{v_file_date}/circuits.csv")\
+    .withColumn("data_source", lit(v_data_src))\
+    .withColumn("file_date", lit(v_file_date))
+
+display(ckts_df)
+ckts_df.printSchema()
+ckts_df.describe().show()
+ckts_df.select(["name","location"])
+
+#Renaming colmns
+ckts_renamed = ckts_df.withColumnRenamed("circuitId","circuit_id")
+display(ckts_renamed)
+
+from pyspark.sql.functions import current_timestamp, lit
+
+ckts_final_df = ckts_renamed.withColumn('ingestion_date',current_timestamp())
+display(ckts_final_df)
+
+#First also saving it as a table so that we can use sql queries on it
+ckts_final_df.write.mode('overwrite').format("parquet").saveAsTable("f1_proc.circuits")
+
+display(ckts_final_df)
+#This parquet file is the ingested
+
+
+%sql
+SELECT * FROM f1_proc.circuits
+
+dbutils.notebook.exit("Success")
+  
