@@ -1,0 +1,22 @@
+dbutils.notebook.help()
+
+v_result = dbutils.notebook.run("/Form1/Ingest/1. Ingest_ckts_csv_file", 0, {"p_data_source":"Ergast API", "p_file_date" : "2021-04-18"})
+v_result
+v_result = dbutils.notebook.run("/Form1/Ingest/2. Ingect_races_assignment", 0, {"p_data_source":"Ergast API", "p_file_date" : "2021-04-18"})
+v_result = dbutils.notebook.run("/Form1/Ingest/3. Ingestion_constructors.json file", 0, {"p_data_source":"Ergast API","p_file_date" : "2021-04-18"})
+v_result = dbutils.notebook.run("/Form1/Ingest/4. Ingest drivers.json file", 0, {"p_data_source":"Ergast API", "p_file_date" : "2021-04-18"})
+v_result = dbutils.notebook.run("/Form1/Ingest/5. ingest results.json", 0, {"p_data_source":"Ergast API", "p_file_date" : "2021-04-18"})
+v_result = dbutils.notebook.run("/Form1/Ingest/6. Ingest pit_stop.json file", 0, {"p_data_source":"Ergast API", "p_file_date" : "2021-04-18"})
+v_result = dbutils.notebook.run("/Form1/Ingest/7.Lap_times _file", 0, {"p_data_source":"Ergast API", "p_file_date" : "2021-04-18"})
+v_result = dbutils.notebook.run("/Form1/Ingest/8. Ingest_qualifying_json", 0, {"p_data_source":"Ergast API", "p_file_date" : "2021-04-18"})
+
+
+%sql
+--Incrmental tables
+--We can see that all data is appended in order of running the date files
+--This is our workflow notebook, but we use delta lake to normally perform the operation
+SELECT race_id,Count(1)
+ FROM f1_proc.results
+GROUP BY race_id 
+ORDER BY race_id DESC;
+  
