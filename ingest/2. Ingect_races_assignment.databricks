@@ -1,0 +1,61 @@
+from pyspark.sql.types import StringType, StructField, StructType, IntegerType, DateType
+from pyspark.sql.functions import lit, col
+
+%run "../includes/Configuration"
+
+#Populates the data at runtime, with the value in the box above
+dbutils.widgets.text("p_data_source","")
+v_data_src = dbutils.widgets.get("p_data_source")
+
+#Populates the data at runtime, with the value in the box above
+dbutils.widgets.text("p_file_date","2021-03-21")
+v_file_date = dbutils.widgets.get("p_file_date")
+
+races_df = spark.read.\
+option("header", True).\
+csv(f"{raw_folder_path}/incremental_load_data/{v_file_date}/races.csv")
+
+display(races_df)
+
+races_df.dtypes
+
+race_schema =  StructType(fields=[StructField("raceId", IntegerType(), False),
+                                  StructField("year", IntegerType(), True),
+                                  StructField("round", IntegerType(), True),
+                                  StructField("circuitId", IntegerType(), True),
+                                  StructField("name", StringType(), True),
+                                  StructField("date", DateType(), True),
+                                  StructField("time", StringType(), True),
+                                  StructField("url", StringType(), True),
+                                  StructField("data_source", StringType(), False),
+                                  StructField("file_date", StringType(), False)
+                                  ])
+races_df = spark.read.option("header", True).schema(race_schema).csv(f"{raw_folder_path}/incremental_load_data/{v_file_date}/races.csv")\
+    .withColumn("data_source", lit(v_data_src))\
+    .withColumn("file_date", lit(v_file_date))
+display(races_df)
+
+from pyspark.sql.functions import current_timestamp, to_timestamp, col, lit, concat
+
+#Adding race timestamp and ingestion date
+races_with_timestamp_df = races_df.withColumn("inges_date", current_timestamp()).\
+                                   withColumn("race_timestamp", to_timestamp(concat(col('date'), lit(' '), col('time')), 'yyyy-MM-dd HH:mm:ss'))
+
+display(races_with_timestamp_df)
+
+races_selected = races_with_timestamp_df.select(col("raceId").alias('race_Id'), col('year').alias('race_year'),col('round'), col('circuitId').alias('ckt_Id'),col('name'),col('inges_date'), col('race_timestamp'))
+
+display(races_selected)
+
+races_selected.write.mode('overwrite').format("parquet").saveAsTable("f1_proc.races")
+
+races_selected.write.mode('overwrite').partitionBy('race_year').parquet('/mnt/form1ka22/proc/races')
+
+%fs
+ls /mnt/form1ka22/proc
+
+%fs
+ls /mnt/form1ka22/proc/races
+
+dbutils.notebook.exit("Success")
+
